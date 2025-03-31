@@ -1,0 +1,6 @@
+generatorName: typescript-axios-yame
+outputDir: samples/client/petstore/typescript/axios/yame
+inputSpec: modules/openapi-generator/src/test/resources/3_0/petstore.yaml
+templateDir: modules/openapi-generator/src/main/resources/typescript-axios-yame
+additionalProperties:
+  hideGenerationTimestamp: "true"
