@@ -23,7 +23,8 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
 
     private List<String> genericTypePrefixes;
 
-    private Map<String,ModelsMap> genericModels = new HashMap<>();
+    private Map<String, ModelsMap> genericModels = new HashMap<>();
+
     public CodegenType getTag() {
         return CodegenType.CLIENT;
     }
@@ -76,8 +77,8 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
             result.put(modelName, entry.getValue());
         }
 
-        if(!this.genericModels.isEmpty()){
-            this.supportingFiles.add(new SupportingFile("genericModels.mustache", modelPackage().replace('.', File.separatorChar), "genericModels.ts"));
+        if (!this.genericModels.isEmpty()) {
+            this.supportingFiles.add(new SupportingFile("genericModels.mustache", modelPackage().replace('.', File.separatorChar), "generic-models.ts"));
         }
 
         return result;
@@ -85,22 +86,44 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
 
     private void addGenericModels(ModelsMap modelsMap, String genericType) {
         // 保存该泛型类型
-        if(genericModels.containsKey(genericType)){
-           return;
+        if (genericModels.containsKey(genericType)) {
+            return;
         }
 
         ModelMap modelMap = modelsMap.getModels().get(0);
         CodegenModel codegenModel = modelMap.getModel();
-        dealCodegenModel(genericType,codegenModel);
-
-        String importPath = (String) modelMap.get("importPath");
-
+        dealCodegenModel(genericType, codegenModel);
         genericModels.put(genericType, modelsMap);
     }
 
     protected void dealCodegenModel(String genericType, CodegenModel codegenModel) {
-        String classname = getClassName(genericType, codegenModel.classname);
+        // 处理类名
+        String classnameOrigin = codegenModel.classname;
+        String classname = getClassName(genericType, classnameOrigin);
         codegenModel.setClassname(classname);
+
+        String typeName = StringUtils.substring(classnameOrigin, genericType.length());
+
+        for (CodegenProperty property : codegenModel.vars) {
+            if (Objects.equals(property.dataType, typeName)) {
+                property.dataType = "T";
+                continue;
+            }
+
+            //类型还是泛型
+            var genericTypeProperty = getGenericType(property.dataType);
+            if (genericTypeProperty != null) {
+                property.dataType = String.format("%s<T>", genericTypeProperty);
+                continue;
+            }
+
+            //容器类型 Array
+            if(property.isContainer){
+                if(Objects.equals(property.complexType, typeName)){
+                    property.dataType = property.dataType.replace(typeName, "T");
+                }
+            }
+        }
     }
 
     private String getClassName(String genericType, String classname) {
@@ -180,11 +203,12 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
         Map<String, Object> bundle = super.postProcessSupportingFileData(objs);
 
         List<ModelsMap> models = new ArrayList<>();
-        for(Map.Entry<String, ModelsMap> entry : this.genericModels.entrySet()){
+        for (Map.Entry<String, ModelsMap> entry : this.genericModels.entrySet()) {
             models.add(entry.getValue());
         }
 
         bundle.put("genericModels", models);
+        bundle.put("genericModelsNotEmpty", !models.isEmpty());
         return bundle;
     }
 
