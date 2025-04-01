@@ -193,6 +193,9 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
             } else {
                 codegenOperation.returnType = String.format("%s<%s>", genericType, newReturnType);
             }
+
+            // 添加泛型类型到 imports
+            codegenOperation.imports.add(genericType);
         }
 
         return codegenOperation;
