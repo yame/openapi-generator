@@ -7,11 +7,11 @@ import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.openapitools.codegen.*;
 
+import java.io.File;
 import java.util.*;
 
 import org.openapitools.codegen.model.ModelMap;
 import org.openapitools.codegen.model.ModelsMap;
-import org.openapitools.codegen.model.OperationsMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,9 +21,9 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
 
     private final Logger LOGGER = LoggerFactory.getLogger(TypescriptAxiosYameClientCodegen.class);
 
-    @Setter
     private List<String> genericTypePrefixes;
 
+    private Map<String,ModelsMap> genericModels = new HashMap<>();
     public CodegenType getTag() {
         return CodegenType.CLIENT;
     }
@@ -36,10 +36,23 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
         return "支持泛型";
     }
 
+    public void setGenericTypePrefixes(List<String> genericTypePrefixes) {
+        if (genericTypePrefixes == null) {
+            this.genericTypePrefixes = Collections.emptyList();
+            return;
+        }
+
+        this.genericTypePrefixes = genericTypePrefixes
+                .stream()
+                .filter(StringUtils::isNotBlank)
+                .sorted(Comparator.comparing(String::length).reversed())
+                .toList();
+    }
+
     @Override
     public void processOpts() {
         super.processOpts();
-        convertPropertyToTypeAndWriteBack(GENERIC_TYPE_PREFIX, s -> Arrays.stream(StringUtils.split(s, ",")).toList(), this::setGenericTypePrefixes);
+        convertPropertyToTypeAndWriteBack(GENERIC_TYPE_PREFIX, s -> Arrays.stream(StringUtils.split(s, "|")).toList(), this::setGenericTypePrefixes);
     }
 
     public TypescriptAxiosYameClientCodegen() {
@@ -57,13 +70,41 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
             String modelName = entry.getKey();
             String genericType = getGenericType(modelName);
             if (genericType != null) {
+                addGenericModels(entry.getValue(), genericType);
                 continue;
             }
-
             result.put(modelName, entry.getValue());
         }
 
+        if(!this.genericModels.isEmpty()){
+            this.supportingFiles.add(new SupportingFile("genericModels.mustache", modelPackage().replace('.', File.separatorChar), "genericModels.ts"));
+        }
+
         return result;
+    }
+
+    private void addGenericModels(ModelsMap modelsMap, String genericType) {
+        // 保存该泛型类型
+        if(genericModels.containsKey(genericType)){
+           return;
+        }
+
+        ModelMap modelMap = modelsMap.getModels().get(0);
+        CodegenModel codegenModel = modelMap.getModel();
+        dealCodegenModel(genericType,codegenModel);
+
+        String importPath = (String) modelMap.get("importPath");
+
+        genericModels.put(genericType, modelsMap);
+    }
+
+    protected void dealCodegenModel(String genericType, CodegenModel codegenModel) {
+        String classname = getClassName(genericType, codegenModel.classname);
+        codegenModel.setClassname(classname);
+    }
+
+    private String getClassName(String genericType, String classname) {
+        return String.format("%s<T>", genericType);
     }
 
     public String getGenericType(String modelName) {
@@ -88,7 +129,7 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
      * @return List<String> 返回一个包含通用类型前缀的不可变列表
      */
     protected List<String> getGenericTypePrefixes() {
-        return this.genericTypePrefixes == null ? Collections.emptyList() : Collections.unmodifiableList(this.genericTypePrefixes);
+        return this.genericTypePrefixes;
     }
 
     @Override
@@ -130,6 +171,22 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
                 codegenOperation.returnType = String.format("%s<%s>", genericType, newReturnType);
             }
         }
+
         return codegenOperation;
     }
+
+    @Override
+    public Map<String, Object> postProcessSupportingFileData(Map<String, Object> objs) {
+        Map<String, Object> bundle = super.postProcessSupportingFileData(objs);
+
+        List<ModelsMap> models = new ArrayList<>();
+        for(Map.Entry<String, ModelsMap> entry : this.genericModels.entrySet()){
+            models.add(entry.getValue());
+        }
+
+        bundle.put("genericModels", models);
+        return bundle;
+    }
+
+
 }
