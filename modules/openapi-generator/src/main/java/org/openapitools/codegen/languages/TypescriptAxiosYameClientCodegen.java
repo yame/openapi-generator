@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodegen implements CodegenConfig {
     public static final String PROJECT_NAME = "projectName";
     private static final String GENERIC_TYPE_PREFIX = "genericTypePrefix";
+    public static final String DEFAULT_API_NAME = "default-api-name";
 
     private final Logger LOGGER = LoggerFactory.getLogger(TypescriptAxiosYameClientCodegen.class);
 
@@ -215,5 +216,11 @@ public class TypescriptAxiosYameClientCodegen extends TypeScriptAxiosClientCodeg
         return bundle;
     }
 
-
+    @Override
+    public String toApiName(String name) {
+        if(name.isEmpty() && this.additionalProperties.containsKey(DEFAULT_API_NAME) && this.additionalProperties.get(DEFAULT_API_NAME) != null){
+            return (String) this.additionalProperties.get(DEFAULT_API_NAME);
+        }
+        return super.toApiName(name);
+    }
 }
