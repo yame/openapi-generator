@@ -1,0 +1,4 @@
+{{#models}}{{#model}}export * from './{{classFilename}}';{{/model}}
+{{/models}}
+{{#genericModelsNotEmpty}}export * from './generic-models.ts';
+{{/genericModelsNotEmpty}}
